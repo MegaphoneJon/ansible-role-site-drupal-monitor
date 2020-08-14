@@ -1,4 +1,5 @@
 ---
+# Drupal Nagios monitoring
 - block:
   - name: Enable nagios module
     command: "drush --root={{ webroot }} en -y nagios"
@@ -33,3 +34,43 @@
       - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
     become_user: "{{ run_as_user }}"
   when: cms == 'Drupal'
+
+# Drupal CiviCRM monitoring
+- block:
+  # FIXME: Check if it's enabled first.
+  - name: Enable Megaphone monitoring
+    command: "cv en com.megaphonetech.monitoring"
+    args:
+      chdir: "{{ webroot }}"
+    become_user: "{{ run_as_user }}"
+
+  - name: Create a role for monitoring
+    command: "drush --root={{ webroot }} role-create 'monitor'"
+    args:
+      chdir: "{{ webroot }}"
+    register: create_monitoring_role
+    become_user: "{{ run_as_user }}"
+    changed_when: create_monitoring_role.rc == 0
+    failed_when: not(create_monitoring_role.rc == 0 or (create_monitoring_role.stderr is defined and create_monitoring_role.stderr is search("Duplicate entry")))
+
+    # drush 7 has a bug and can't handle this.
+  - name: Add remote monitoring permission to monitor role
+    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    become_user: "{{ run_as_user }}"
+
+    # We don't actually record the password because we don't care what it is.
+  - name: Create a user for monitoring
+    command: "drush --root={{ webroot }} user-create {{ monitoring_user }} --mail='{{ monitoring_email }}' --password='{{ lookup('password', '/dev/null length=32') }}'"
+    register: create_monitoring_user
+    become_user: "{{ run_as_user }}"
+    changed_when: create_monitoring_user.rc == 0
+    failed_when: not(create_monitoring_user.rc == 0 or create_monitoring_user.stderr is search("There is already a user account with the"))
+
+  - name: Add the monitoring role to the monitoring user
+    command: "drush --root={{ webroot }} user-add-role 'monitor' {{ monitoring_user }}"
+    register: create_monitoring_user
+    become_user: "{{ run_as_user }}"
+    changed_when: create_monitoring_user.rc == 0
+    failed_when: not(create_monitoring_user.rc == 0 or create_monitoring_user.stderr is search("There is already a user account with the email"))
+
+  when: cms == 'Drupal' and site.contract_type is search("Civi Maintenance") and site.civicrm == 'Yes'
