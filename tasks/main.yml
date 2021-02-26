@@ -35,6 +35,43 @@
     become_user: "{{ run_as_user }}"
   when: cms == 'Drupal'
 
+- block:
+  - name: Install D8 Nagios module
+    community.general.composer:
+      command: "require"
+      arguments: "drupal/nagios:^1.11"
+      working_dir: "{{ gitroot }}"
+    become_user: "{{ run_as_user }}"
+
+  - name: git add Nagios
+    command: git add -v -A
+    args:
+      chdir: "{{ gitroot }}"
+    register: add_result
+    become_user: "{{ run_as_user }}"
+    changed_when: add_result.stdout != ''
+    failed_when: add_result.stderr != ''
+
+  - name: git commit Nagios
+    command: "git commit -m 'Drupal Nagios'"
+    args:
+      chdir: "{{ gitroot }}"
+    register: commit_result
+    become_user: "{{ run_as_user }}"
+    changed_when: commit_result.rc == 0
+    failed_when: not(commit_result.rc == 0 or 'nothing to commit, working tree clean' in commit_result.stdout_lines)
+
+  - name: git push
+    command: git push
+    args:
+      chdir: "{{ gitroot }}"
+    register: push_result_addl
+    become_user: "{{ run_as_user }}"
+    when: internal_repo == "1" and (git_repo_push_url is search("ssh://"))
+    changed_when: push_result_addl.rc == 0 and push_result_addl.stderr != 'Everything up-to-date'
+    failed_when: not(push_result_addl.rc == 0)
+  when: cms == 'Drupal8' and env == 'Dev'
+
 # Drupal CiviCRM monitoring
 - block:
   - name: Enable Megaphone monitoring
@@ -44,18 +81,21 @@
     become_user: "{{ run_as_user }}"
 
   - name: Create a role for monitoring
-    command: "drush --root={{ webroot }} role-create 'monitor'"
+    command: "drush --root={{ webroot }} role-create 'monitor' 'Monitor'"
     args:
       chdir: "{{ webroot }}"
     register: create_monitoring_role
     become_user: "{{ run_as_user }}"
     changed_when: create_monitoring_role.rc == 0
-    failed_when: not(create_monitoring_role.rc == 0 or (create_monitoring_role.stderr is defined and create_monitoring_role.stderr is search("Duplicate entry")))
+    failed_when: not(create_monitoring_role.rc == 0 or (create_monitoring_role.stderr is defined and (create_monitoring_role.stderr is search("Duplicate entry") or create_monitoring_role.stderr is search("'user_role' entity with ID 'monitor' already exists"))))
 
     # drush 7 has a bug and can't handle this.
+    # FIXME: drush8 isn't defined on our D8 sites.  Long term goal is to deprecate use of drush 7 and greatly simplify drush commands.
   - name: Add remote monitoring permission to monitor role
-    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    command: "drush --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
     become_user: "{{ run_as_user }}"
+
+    #FIXME: Need to "composer install", "drush en", and configure Nagios on D8.
 
     # We don't actually record the password because we don't care what it is.
   - name: Create a user for monitoring
@@ -79,4 +119,4 @@
     become_user: "{{ run_as_user }}"
     when: civicrm == 'Yes'
 
-  when: cms == 'Drupal' and contract_type is search("Civi Maintenance") and civicrm == 'Yes'
+  when: (cms == 'Drupal' or cms == 'Drupal8') and contract_type is search("Civi Maintenance") and civicrm == 'Yes'
