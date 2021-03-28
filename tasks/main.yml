@@ -33,7 +33,7 @@
       - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
       - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
     become_user: "{{ run_as_user }}"
-  when: cms == 'Drupal'
+  when: cms == 'Drupal' and env == 'Live'
 
 - block:
   - name: Install D8 Nagios module
@@ -89,11 +89,17 @@
     changed_when: create_monitoring_role.rc == 0
     failed_when: not(create_monitoring_role.rc == 0 or (create_monitoring_role.stderr is defined and (create_monitoring_role.stderr is search("Duplicate entry") or create_monitoring_role.stderr is search("'user_role' entity with ID 'monitor' already exists"))))
 
-    # drush 7 has a bug and can't handle this.
-    # FIXME: drush8 isn't defined on our D8 sites.  Long term goal is to deprecate use of drush 7 and greatly simplify drush commands.
   - name: Add remote monitoring permission to monitor role
-    command: "drush --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
     become_user: "{{ run_as_user }}"
+    when: cms == 'Drupal'
+
+    #FIXME: drush8 isn't always enabled on D8 sites?
+  - name: Add remote monitoring permission to monitor role
+    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    become_user: "{{ run_as_user }}"
+    when: cms == 'Drupal8'
+
 
     #FIXME: Need to "composer install", "drush en", and configure Nagios on D8.
 
@@ -113,7 +119,7 @@
     failed_when: not(create_monitoring_user.rc == 0 or create_monitoring_user.stderr is search("There is already a user account with the email"))
 
   - name: Create a CiviCRM contact for the admin user
-    shell: echo '{"contact_type":"Individual", "display_name":"{{ monitoring_email }}","api_key":"'{{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/apikey create=true length=32') }}'","email":"{{ monitoring_email }}","options":{"match":"email"}}' | cv api contact.create --in=json
+    shell: echo '{"contact_type":"Individual", "display_name":"{{ monitoring_email }}","api_key":"'{{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/apikey create=true length=32 create=true length=32') }}'","email":"{{ monitoring_email }}","options":{"match":"email"}}' | cv api contact.create --in=json
     args:
       chdir: "{{ webroot }}"
     become_user: "{{ run_as_user }}"
