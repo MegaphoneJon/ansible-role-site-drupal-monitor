@@ -75,7 +75,7 @@
 # Drupal CiviCRM monitoring
 - block:
   - name: Enable Megaphone monitoring
-    command: "cv en com.megaphonetech.monitoring"
+    shell: "PATH=$HOME/bin:$PATH;cv en com.megaphonetech.monitoring"
     args:
       chdir: "{{ webroot }}"
     become_user: "{{ run_as_user }}"
