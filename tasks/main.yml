@@ -123,6 +123,5 @@
     args:
       chdir: "{{ webroot }}"
     become_user: "{{ run_as_user }}"
-    when: civicrm == 'Yes'
 
   when: (cms == 'Drupal' or cms == 'Drupal8') and contract_type is search("Civi Maintenance") and civicrm == 'Yes'
