@@ -1,38 +1,38 @@
 ---
 # Drupal Nagios monitoring
-- block:
-  - name: Enable nagios module
-    command: "drush --root={{ webroot }} en -y nagios"
-    args:
-      creates: "{{ webroot }}/sites/all/modules/nagios"
-    become_user: "{{ run_as_user }}"
+- name: Enable nagios module
+  command: "drush --root={{ webroot }} en -y nagios"
+  args:
+    creates: "{{ webroot }}/sites/all/modules/nagios"
+  become_user: "{{ run_as_user }}"
+  when: cms == 'Drupal' and env == 'Dev'
 
-  - name: Configure nagios
-    command: "drush --root={{ webroot }} vset {{ item }}"
-    loop:
-      - "nagios_cron_duration '480'"
-      - "nagios_enable_nagios 1"
-      - "nagios_enable_status_page 1"
-      - "nagios_enable_status_page_get 0"
-      - "nagios_func_cron 1"
-      - "nagios_func_modules 1"
-      - "nagios_func_nodes 1"
-      - "nagios_func_requirements 1"
-      - "nagios_func_session_anon 1"
-      - "nagios_func_session_auth 1"
-      - "nagios_func_themes 1"
-      - "nagios_func_users 1"
-      - "nagios_min_report_severity '2'"
-      - "nagios_page_callback nagios_status_page"
-      - "nagios_page_path nagios"
-      - "nagios_show_outdated_names 1"
-      - "nagios_status_critical_value '2'"
-      - "nagios_status_ok_value '0'"
-      - "nagios_status_unknown_value '3'"
-      - "nagios_status_warning_value '1'"
-      - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
-      - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
-    become_user: "{{ run_as_user }}"
+- name: Configure nagios
+  command: "drush --root={{ webroot }} vset {{ item }}"
+  loop:
+    - "nagios_cron_duration '480'"
+    - "nagios_enable_nagios 1"
+    - "nagios_enable_status_page 1"
+    - "nagios_enable_status_page_get 0"
+    - "nagios_func_cron 1"
+    - "nagios_func_modules 1"
+    - "nagios_func_nodes 1"
+    - "nagios_func_requirements 1"
+    - "nagios_func_session_anon 1"
+    - "nagios_func_session_auth 1"
+    - "nagios_func_themes 1"
+    - "nagios_func_users 1"
+    - "nagios_min_report_severity '2'"
+    - "nagios_page_callback nagios_status_page"
+    - "nagios_page_path nagios"
+    - "nagios_show_outdated_names 1"
+    - "nagios_status_critical_value '2'"
+    - "nagios_status_ok_value '0'"
+    - "nagios_status_unknown_value '3'"
+    - "nagios_status_warning_value '1'"
+    - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
+    - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
+  become_user: "{{ run_as_user }}"
   when: cms == 'Drupal' and env == 'Live'
 
 - block:
