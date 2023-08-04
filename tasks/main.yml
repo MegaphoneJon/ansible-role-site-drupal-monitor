@@ -67,7 +67,7 @@
       chdir: "{{ gitroot }}"
     register: push_result_addl
     become_user: "{{ run_as_user }}"
-    when: internal_repo == "1" and (git_repo_push_url is search("ssh://"))
+    when: internal_repo == "1" and (git_repo_push_url is not search("https://"))
     changed_when: push_result_addl.rc == 0 and push_result_addl.stderr != 'Everything up-to-date'
     failed_when: not(push_result_addl.rc == 0)
   when: cms == 'Drupal8' and env == 'Dev'
