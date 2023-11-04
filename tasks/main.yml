@@ -1,39 +1,12 @@
 ---
 # Drupal Nagios monitoring
-- name: Enable nagios module
-  command: "drush --root={{ webroot }} en -y nagios"
-  args:
-    creates: "{{ webroot }}/sites/all/modules/nagios"
-  become_user: "{{ run_as_user }}"
-  when: cms == 'Drupal' and env == 'Dev'
+- name: D10 drush path
+  set_fact:
+    d10_drush_path: "{{ gitroot }}/vendor/bin/drush"
 
-- name: Configure nagios
-  command: "drush --root={{ webroot }} vset {{ item }}"
-  loop:
-    - "nagios_cron_duration '480'"
-    - "nagios_enable_nagios 1"
-    - "nagios_enable_status_page 1"
-    - "nagios_enable_status_page_get 0"
-    - "nagios_func_cron 1"
-    - "nagios_func_modules 1"
-    - "nagios_func_nodes 1"
-    - "nagios_func_requirements 1"
-    - "nagios_func_session_anon 1"
-    - "nagios_func_session_auth 1"
-    - "nagios_func_themes 1"
-    - "nagios_func_users 1"
-    - "nagios_min_report_severity '2'"
-    - "nagios_page_callback nagios_status_page"
-    - "nagios_page_path nagios"
-    - "nagios_show_outdated_names 1"
-    - "nagios_status_critical_value '2'"
-    - "nagios_status_ok_value '0'"
-    - "nagios_status_unknown_value '3'"
-    - "nagios_status_warning_value '1'"
-    - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
-    - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
-  become_user: "{{ run_as_user }}"
-  when: cms == 'Drupal' and env == 'Live'
+- name: drush path
+  set_fact:
+    drush_path: "{{ d10_drush_path if cms == 'Drupal8' else 'drush' }}"
 
 - block:
   - name: Install D8 Nagios module
@@ -70,7 +43,43 @@
     when: internal_repo == "1" and (git_repo_push_url is not search("https://"))
     changed_when: push_result_addl.rc == 0 and push_result_addl.stderr != 'Everything up-to-date'
     failed_when: not(push_result_addl.rc == 0)
+  #FIXME: need to configure Nagios on D10.
   when: cms == 'Drupal8' and env == 'Dev'
+
+- name: Enable nagios module
+  command: "{{ drush_path }} --root={{ webroot }} en -y nagios"
+  args:
+    creates: "{{ webroot }}/sites/all/modules/nagios"
+  become_user: "{{ run_as_user }}"
+  when: (cms == 'Drupal' or cms == 'Drupal8') and env == 'Dev'
+
+- name: Configure nagios
+  command: "{{ drush_path }} --root={{ webroot }} vset {{ item }}"
+  loop:
+    - "nagios_cron_duration '480'"
+    - "nagios_enable_nagios 1"
+    - "nagios_enable_status_page 1"
+    - "nagios_enable_status_page_get 0"
+    - "nagios_func_cron 1"
+    - "nagios_func_modules 1"
+    - "nagios_func_nodes 1"
+    - "nagios_func_requirements 1"
+    - "nagios_func_session_anon 1"
+    - "nagios_func_session_auth 1"
+    - "nagios_func_themes 1"
+    - "nagios_func_users 1"
+    - "nagios_min_report_severity '2'"
+    - "nagios_page_callback nagios_status_page"
+    - "nagios_page_path nagios"
+    - "nagios_show_outdated_names 1"
+    - "nagios_status_critical_value '2'"
+    - "nagios_status_ok_value '0'"
+    - "nagios_status_unknown_value '3'"
+    - "nagios_status_warning_value '1'"
+    - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
+    - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
+  become_user: "{{ run_as_user }}"
+  when: cms == 'Drupal' and env == 'Live'
 
 # Drupal CiviCRM monitoring
 - block:
@@ -81,7 +90,7 @@
     become_user: "{{ run_as_user }}"
 
   - name: Create a role for monitoring
-    command: "drush --root={{ webroot }} role-create 'monitor' 'Monitor'"
+    command: "{{ drush_path }} --root={{ webroot }} role-create 'monitor' 'Monitor'"
     args:
       chdir: "{{ webroot }}"
     register: create_monitoring_role
@@ -90,29 +99,25 @@
     failed_when: not(create_monitoring_role.rc == 0 or (create_monitoring_role.stderr is defined and (create_monitoring_role.stderr is search("Duplicate entry") or create_monitoring_role.stderr is search("'user_role' entity with ID 'monitor' already exists"))))
 
   - name: Add remote monitoring permission to monitor role
-    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    command: "{{ drush_path }} --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
     become_user: "{{ run_as_user }}"
     when: cms == 'Drupal'
 
-    #FIXME: drush8 isn't always enabled on D8 sites?
   - name: Add remote monitoring permission to monitor role
-    command: "drush8 --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
+    command: "{{ drush_path }} --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
     become_user: "{{ run_as_user }}"
     when: cms == 'Drupal8'
 
-
-    #FIXME: Need to "composer install", "drush en", and configure Nagios on D8.
-
     # We don't actually record the password because we don't care what it is.
   - name: Create a user for monitoring
-    command: "drush --root={{ webroot }} user-create {{ monitoring_user }} --mail='{{ monitoring_email }}' --password='{{ lookup('password', '/dev/null length=32') }}'"
+    command: "{{ drush_path }} --root={{ webroot }} user-create {{ monitoring_user }} --mail='{{ monitoring_email }}' --password='{{ lookup('password', '/dev/null length=32') }}'"
     register: create_monitoring_user
     become_user: "{{ run_as_user }}"
     changed_when: create_monitoring_user.rc == 0
     failed_when: not(create_monitoring_user.rc == 0 or create_monitoring_user.stderr is search("There is already a user account with the"))
 
   - name: Add the monitoring role to the monitoring user
-    command: "drush --root={{ webroot }} user-add-role 'monitor' {{ monitoring_user }}"
+    command: "{{ drush_path }} --root={{ webroot }} user-add-role 'monitor' {{ monitoring_user }}"
     register: create_monitoring_user
     become_user: "{{ run_as_user }}"
     changed_when: create_monitoring_user.rc == 0
