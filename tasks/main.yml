@@ -77,7 +77,7 @@
     - "nagios_status_unknown_value '3'"
     - "nagios_status_warning_value '1'"
     - "--format=json nagios_ignored_modules '{\"civicrm\":true}'"
-    - "nagios_ua {{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
+    - "nagios_ua {{ lookup('community.general.passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
   become_user: "{{ run_as_user }}"
   when: cms == 'Drupal' and env == 'Live'
 
@@ -124,7 +124,7 @@
     failed_when: not(create_monitoring_user.rc == 0 or create_monitoring_user.stderr is search("There is already a user account with the email"))
 
   - name: Create a CiviCRM contact for the admin user
-    shell: echo '{"contact_type":"Individual", "display_name":"{{ monitoring_email }}","api_key":"'{{ lookup('passwordstore', client + '/' + hostname + '/' + bare_url + '/civicrm_api_key create=true length=32 create=true length=32') }}'","email":"{{ monitoring_email }}","options":{"match":"email"}}' | cv api contact.create --in=json
+    shell: echo '{"contact_type":"Individual", "display_name":"{{ monitoring_email }}","api_key":"'{{ lookup('community.general.passwordstore', client + '/' + hostname + '/' + bare_url + '/civicrm_api_key create=true length=32 create=true length=32') }}'","email":"{{ monitoring_email }}","options":{"match":"email"}}' | cv api contact.create --in=json
     args:
       chdir: "{{ webroot }}"
     become_user: "{{ run_as_user }}"
