@@ -14,6 +14,7 @@
       command: "require"
       arguments: "drupal/nagios:^1.11"
       working_dir: "{{ gitroot }}"
+      executable: "{{ php_path|default(omit) }}"
     become_user: "{{ run_as_user }}"
 
   - name: git add Nagios
