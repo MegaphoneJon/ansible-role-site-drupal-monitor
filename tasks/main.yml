@@ -44,7 +44,6 @@
     when: internal_repo == "1" and (git_repo_push_url is not search("https://"))
     changed_when: push_result_addl.rc == 0 and push_result_addl.stderr != 'Everything up-to-date'
     failed_when: not(push_result_addl.rc == 0)
-  #FIXME: need to configure Nagios on D10.
   when: cms == 'Drupal8' and env == 'Dev'
 
 - name: Enable nagios module
@@ -52,7 +51,7 @@
   args:
     creates: "{{ webroot }}/sites/all/modules/nagios"
   become_user: "{{ run_as_user }}"
-  when: (cms == 'Drupal' or cms == 'Drupal8') and env == 'Dev'
+  when: (cms == 'Drupal' or cms == 'Drupal8')
 
 - name: Configure nagios
   command: "{{ drush_path }} --root={{ webroot }} vset {{ item }}"
@@ -81,6 +80,36 @@
     - "nagios_ua {{ lookup('community.general.passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
   become_user: "{{ run_as_user }}"
   when: cms == 'Drupal' and env == 'Live'
+
+- name: Build hierarchical nagios settings for Drupal 8
+  set_fact:
+    nagios_settings:
+      cron_duration: 480
+      enable:
+        nagios: true
+      status_page:
+        enabled: true
+        getparam: false
+        path: "nagios"
+      function:
+        cron: true
+        maintenance: true
+        modules: true
+        nodes: true
+        requirements: true
+        session_anon: true
+        session_auth: true
+        themes: true
+        users: true
+        watchdog: true
+      min_report_severity: 2
+      show_outdated_names: true
+      ua: "{{ lookup('community.general.passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
+
+- name: Configure nagios for Drupal 8 (single hierarchical YAML value)
+  command: "{{ drush_path }} -y --root={{ webroot }} --input-format=yaml config-set nagios.settings nagios '{{ nagios_settings }}'"
+  become_user: "{{ run_as_user }}"
+  when: cms == 'Drupal8' and env == 'Live'
 
 # Drupal CiviCRM monitoring
 - block:
