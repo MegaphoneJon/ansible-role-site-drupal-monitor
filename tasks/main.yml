@@ -84,12 +84,18 @@
 - name: Build hierarchical nagios settings for Drupal 8
   set_fact:
     nagios_settings:
+      status:
+        ok: 0
+        warning: 1
+        critical: 2
+        unknown: 3
       cron_duration: 480
       enable:
         nagios: true
-      status_page:
+      statuspage:
         enabled: true
         getparam: false
+        controller: ''
         path: "nagios"
       function:
         cron: true
@@ -104,6 +110,9 @@
         watchdog: true
       min_report_severity: 2
       show_outdated_names: true
+      experimental_modules: true
+      deprecated_modules: true
+      deprecated_themes: true
       ua: "{{ lookup('community.general.passwordstore', client + '/' + hostname + '/' + bare_url + '/nagioskey create=true length=32') }}"
 
 - name: Configure nagios for Drupal 8 (single hierarchical YAML value)
@@ -131,12 +140,7 @@
   - name: Add remote monitoring permission to monitor role
     command: "{{ drush_path }} --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
     become_user: "{{ run_as_user }}"
-    when: cms == 'Drupal'
-
-  - name: Add remote monitoring permission to monitor role
-    command: "{{ drush_path }} --root={{ webroot }} role-add-perm 'monitor' 'remote monitoring'"
-    become_user: "{{ run_as_user }}"
-    when: cms == 'Drupal8'
+    when: cms == 'Drupal' or cms == 'Drupal8'
 
     # We don't actually record the password because we don't care what it is.
   - name: Create a user for monitoring
